@@ -11,8 +11,7 @@ the robot's QR code runs it too, and keeps the statistics. Online at [focus.q41.
 
 The Pomodoro Technique® is a registered trademark of Francesco Cirillo; this project is not
 affiliated with it.
-Stack-chan (スタックチャン) is a registered trademark of Shinya Ishikawa; this project is
-independent and only made to work with Stack-chan robots.
+Stack-chan (スタックチャン) was created by Shinya Ishikawa and the Stack-chan community ([github.com/stack-chan/stack-chan](https://github.com/stack-chan/stack-chan)); this project is independent of it and of M5Stack.
 
 > **A proof of concept, vibe coded.** Written with AI agents and tested on real hardware at home,
 > but neither the code nor its security has been reviewed by humans.
