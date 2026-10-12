@@ -75,7 +75,7 @@ type robot struct {
 	commands []string
 
 	// What the robot shows now (robot.go), so only changes are sent.
-	shownClock string
+	shownFrame string // screen.Key of the picture
 	shownLEDs  string
 	lastTouch  time.Time // the last start/pause from the robot: one per touch
 }

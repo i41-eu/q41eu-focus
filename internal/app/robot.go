@@ -43,7 +43,7 @@ func (a *App) attach(c *robothub.Robot) {
 	defer a.mu.Unlock()
 	r := a.robotFor(c.ID())
 	r.conn, r.commands, r.lastSeen = c, c.Capabilities().Commands, a.cfg.Now()
-	r.shownClock, r.shownLEDs = "", ""
+	r.shownFrame, r.shownLEDs = "", ""
 	a.showLocked(r, a.cfg.Now())
 	a.publishState(r)
 	go a.reportSeen(context.Background(), c.ID())
@@ -148,24 +148,24 @@ func (a *App) reactLocked(r *robot, ev timer.Event) {
 	}
 }
 
-// view is the timer as the robot shows it. a.mu held.
+// screenView is the timer as the robot shows it. a.mu held.
 func (a *App) screenView(r *robot, now time.Time) screen.View {
 	t := r.timer
 	st := t.Stats(now, a.cfg.Location)
-	return screen.View{Phase: string(t.Phase), Status: string(t.Status), Remaining: t.Remaining(now), Full: t.Settings.Length(t.Phase),
-		Round: t.Round, LongEvery: t.Settings.LongEvery, Today: st.Today.Done, Goal: t.Settings.DailyGoal}
+	return screen.View{Phase: string(t.Phase), Status: string(t.Status), Display: string(t.Settings.Display), Remaining: t.Remaining(now),
+		Full: t.Settings.Length(t.Phase), Round: t.Round, LongEvery: t.Settings.LongEvery, Today: st.Today.Done, Goal: t.Settings.DailyGoal}
 }
 
-// showLocked sends the robot its picture and LEDs when they changed. a.mu held.
+// showLocked sends the robot its picture and LEDs when they changed: a picture every second
+// only with the seconds shown, once a minute with minutes, six times a phase when calm. a.mu held.
 func (a *App) showLocked(r *robot, now time.Time) {
 	c := r.conn
 	if c == nil {
 		return
 	}
 	v := a.screenView(r, now)
-	key := v.Phase + v.Status + screen.Clock(v.Remaining) + screen.Status(v) + string(rune('0'+v.Round)) + string(rune('0'+v.Today%10))
-	if key != r.shownClock {
-		r.shownClock = key
+	if key := screen.Key(v); key != r.shownFrame {
+		r.shownFrame = key
 		c.Binary(wire.BinShowJPEG, screen.Frame(v))
 	}
 	if !r.timer.Settings.Lights {

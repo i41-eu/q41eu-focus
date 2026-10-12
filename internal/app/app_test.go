@@ -2,17 +2,20 @@ package app
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/i41-eu/q41eu-focus/internal/timer"
 	"github.com/i41-eu/q41eu-raw/statestore"
 	"github.com/i41-eu/q41eu-raw/wire"
 )
@@ -321,5 +324,100 @@ func TestUnknownRobotRefused(t *testing.T) {
 	_, resp, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(ts.URL, "http")+wire.ConnectPath, h)
 	if err == nil || resp.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("a wrong token: %v %v", err, resp)
+	}
+}
+
+func TestDisplayOnTheRobot(t *testing.T) {
+	const id = "stackchan-0a1b2c3d4e54"
+	a, ts, clk := newApp(t, nil)
+	r := connect(t, ts, id)
+	eventually(t, "a pairing code", func() bool { return r.pairCode() != "" })
+	b := newBrowser(t, ts)
+	b.c.Get(ts.URL + "/pair?code=" + r.pairCode())
+	if _, v := b.get("/api/state"); v["settings"].(map[string]any)["display"] != "calm" {
+		t.Fatalf("a new robot is calm: %v", v["settings"])
+	}
+	b.post("/api/action", `{"action":"start"}`)
+
+	// sync waits until the robot got all the app sent it so far (a frame queued after them came
+	// back) and returns how many pictures it got.
+	marker := 1000
+	sync := func() int {
+		marker++
+		a.mu.Lock()
+		a.robots[id].conn.Frame(wire.KindPaired, wire.PairedBody{Viewers: marker})
+		a.mu.Unlock()
+		eventually(t, "the robot got all", func() bool { p, _ := r.lastPaired(); return p.Viewers == marker })
+		return r.count(wire.BinShowJPEG)
+	}
+	// pictures is how many pictures the robot gets in the next seconds.
+	pictures := func(seconds int) int {
+		before := sync()
+		for range seconds {
+			clk.add(time.Second)
+			a.step(clk.Now())
+		}
+		return sync() - before
+	}
+	choose := func(display string) any {
+		code, v := b.post("/api/settings", fmt.Sprintf(`{"settings":{"focus_min":25,"short_min":5,"long_min":15,"long_every":4,`+
+			`"daily_goal":8,"sound":true,"lights":true,"moves":true,"display":%q}}`, display))
+		if code != 200 {
+			t.Fatalf("display %s: %d", display, code)
+		}
+		return v["settings"].(map[string]any)["display"]
+	}
+	show := func(display string) { // the robot gets a new picture right away
+		before := sync()
+		if got := choose(display); got != display {
+			t.Fatalf("display %s: %v", display, got)
+		}
+		if n := sync() - before; n != 1 {
+			t.Fatalf("display %s: %d pictures right away, want 1", display, n)
+		}
+	}
+
+	if n := pictures(60); n != 0 { // 25:00 to 24:00 left: the same sixth
+		t.Errorf("calm: %d pictures in a minute, want none", n)
+	}
+	show("seconds")
+	if n := pictures(30); n != 30 {
+		t.Errorf("seconds: %d pictures in 30 seconds", n)
+	}
+	show("minutes")
+	if n := pictures(120); n != 2 {
+		t.Errorf("minutes: %d pictures in 2 minutes", n)
+	}
+	show("calm") // 21:30 left: the next sixth starts at 20:50
+	if n := pictures(30); n != 0 {
+		t.Errorf("calm again: %d pictures in 30 seconds", n)
+	}
+	if n := pictures(20); n != 1 {
+		t.Errorf("calm, a sixth over: %d pictures", n)
+	}
+	if got := choose("fancy"); got != "calm" {
+		t.Errorf("an unknown display: %v, want calm", got)
+	}
+}
+
+func TestDisplayCalmForExistingUsers(t *testing.T) {
+	// A state saved before the display setting existed: its timers have none, and are calm.
+	const id = "stackchan-0a1b2c3d4e55"
+	path := t.TempDir() + "/state.json"
+	if err := os.WriteFile(path, []byte(`{"robots":{"`+id+`":{"timer":{"settings":{"focus_min":50,"short_min":10,"long_min":20,`+
+		`"long_every":3,"daily_goal":8,"sound":true,"lights":true,"moves":true},"phase":"focus","status":"idle","left":3000000000000}}},"sessions":{}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	a, _, _ := newApp(t, &statestore.File{Path: path})
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if s := a.robots[id].timer.Settings; s.Display != timer.Calm || s.FocusMin != 50 {
+		t.Errorf("an existing timer: %+v", s)
+	}
+	if v := a.view(a.robots[id], ""); v.Settings.Display != timer.Calm {
+		t.Errorf("the page gets %q", v.Settings.Display)
+	}
+	if d := a.robotFor("stackchan-0a1b2c3d4e56").timer.Settings.Display; d != timer.Calm {
+		t.Errorf("a new robot: %q", d)
 	}
 }

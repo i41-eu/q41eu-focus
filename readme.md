@@ -1,13 +1,14 @@
 # q41eu-focus
 
-<img src="docs/img/robot3d-focus.png" width="220" align="right" alt="A Stackchan robot running Focus: 17:42 left in a red ring, its LEDs counting down">
+<img src="docs/img/robot3d-focus.png" width="220" align="right" alt="A Stackchan robot running Focus with minutes and seconds shown: 17:42 left in a red ring, its LEDs counting down">
 
 **Focus** is a focus timer for Stackchan robots in Embody Mode, in the style of the Pomodoro
 Technique®: focus for 25 minutes, a 5 minute break, and a longer break after every four. The
-robot is the timer: it shows the time left as a ring, lights its LEDs as a shrinking bar, chimes
-and nods when a phase ends, and tells the room "FREE IN 12 MIN" while you focus. No phone is
-needed: tap the robot's screen to start or pause, hold it to skip. A phone or computer paired by
-the robot's QR code runs it too, and keeps the statistics. Online at [focus.q41.eu](https://focus.q41.eu).
+robot is the timer: it shows the time left as a ring that empties in a few calm steps (no ticking
+digits, unless you ask for them), lights its LEDs as a shrinking bar, chimes and nods when a phase
+ends, and tells the room you are focusing. No phone is needed: tap the robot's screen to start or
+pause, hold it to skip. A phone or computer paired by the robot's QR code runs it too, and keeps
+the statistics. Online at [focus.q41.eu](https://focus.q41.eu).
 
 The Pomodoro Technique® is a registered trademark of Francesco Cirillo; this project is not
 affiliated with it.
@@ -33,10 +34,11 @@ for a home.
 
 ## On the robot
 
-- **The screen:** the phase (FOCUS, SHORT BREAK, LONG BREAK), the time left as a ring and as
-  digits, today's count (with the daily goal), the set's dots (a long break after every four), and
-  a line for the room: "FREE IN 12 MIN" while focusing, "STRETCH" or "TAKE A WALK" on a break,
-  "PAUSED", "TAP TO FOCUS".
+- **The screen:** the phase (FOCUS, SHORT BREAK, LONG BREAK), the time left as a ring, today's
+  count (with the daily goal), the set's dots (a long break after every four), and a line for the
+  room: "FOCUSING" while focusing, "STRETCH" or "TAKE A WALK" on a break, "PAUSED", "TAP TO
+  FOCUS". By default no number counts down; whole minutes, or minutes and seconds, are a setting
+  (see [The time left](#the-time-left)).
 - **Touch:** tap the screen (or touch the head) to start or pause, hold the screen to skip to the
   next phase. A focus period cut short does not count, and nothing punishes it.
 - **Lights:** both LED strips show the time left, dim, red while focusing, green or blue on a
@@ -51,12 +53,38 @@ for a home.
 The timer with Start/Pause, Skip and Reset (Space starts or pauses), what you focus on (the
 week's statistics count by it), two marks for interruptions without stopping the timer (the
 technique's ' for "distracted myself" and – for "interrupted"), today's focus periods, minutes and
-days in a row, the last seven days, and the settings: presets 25/5, 50/10, 90/20, each length,
-the long break interval, a daily goal, when a day starts (for night owls), whether breaks and
-focus start by themselves (off by default), and the robot's chime, lights and moves.
+days in a row, the last seven days, and the settings: how the time left shows (calm, minutes, or
+minutes and seconds), presets 25/5, 50/10, 90/20, each length, the long break interval, a daily
+goal, when a day starts (for night owls), whether breaks and focus start by themselves (off by
+default), and the robot's chime, lights and moves.
 
 With a Stackchan manager's sign-in (`-manager-sign-in`), the owner's signed-in browsers get their
 robots without the QR code.
+
+## The time left
+
+A number that changes every second pulls the eye away from the work, and the technique asks you
+to work until the bell, not to watch the clock. So by default nothing counts down: the robot and
+the page show the phase and a ring that empties in six steps. Whole minutes, or minutes and
+seconds, are a choice in the page's settings ("The time left, on the robot and here"):
+
+| Display | The robot's screen | The page | Changes |
+|---|---|---|---|
+| **Calm** (the default) | no digits; the ring in six segments, one goes dark every sixth of the phase; in the middle "FOCUSING", "STRETCH", "TAKE A WALK", "PAUSED" or "TAP TO FOCUS" | the same ring in six segments, and in the middle "Focusing", "Stand up, stretch", "Paused", "Ready to focus"; the tab's title is the phase ("Focusing", "Short break") | six times a phase (about every 4 minutes in a 25 minute focus period) |
+| **Minutes** | the whole minutes left, rounded up ("18 MIN": 25 right after the start, 1 in the last minute), the ring by the minute, "FREE IN 18 MIN" | "18 min", "Free in 18 min", the ring by the minute; the tab's title "18 min · Focus" | once a minute |
+| **Minutes and seconds** | a countdown ("17:42") in a smooth ring, "FREE IN 18 MIN" (as before the setting existed) | the same; the tab's title counts down too | every second |
+
+- In calm, no number shows the time left anywhere: not on the robot, not on the page, not in the
+  tab's title, not to screen readers (they hear the phase and whether it runs, in every display).
+  The room reads "FOCUSING" instead of "FREE IN 12 MIN"; the ring's segments tell roughly how much
+  is left.
+- The LEDs show the time left in six steps in every display, the same steps as the calm ring.
+- The robot gets a new picture only when something on it changes: in calm six times a phase (and
+  when you start, pause, skip, or change a setting), not every second.
+- It is a setting of the robot's timer, like the lengths and the chime: every browser paired with
+  the robot changes the same one, and the robot's screen and all the pages follow it. It is saved
+  as `display` (`calm`, `minutes`, `seconds`); a timer saved before the setting existed, or with
+  any other value, is calm.
 
 ## Run
 

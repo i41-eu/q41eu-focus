@@ -41,6 +41,8 @@
            background: var(--bg); color: var(--text); width: 100%; }
   input[type=number] { width: 5.5em; }
   label.check { display: flex; gap: 10px; align-items: center; margin: 6px 0; }
+  fieldset { border: 0; padding: 0; margin: 0 0 14px; min-width: 0; }
+  legend { font-weight: 700; padding: 0; }
 
   .phases { display: flex; gap: 6px; justify-content: center; margin-bottom: 4px; }
   .phases span { padding: 4px 12px; border-radius: 999px; font-size: 0.85rem; font-weight: 700; color: var(--muted); }
@@ -50,6 +52,11 @@
   .ring .clock { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
   .ring .time { font-size: clamp(3rem, 15vw, 4.4rem); font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
   .ring .line { color: var(--muted); font-weight: 600; }
+  .ring .unit { font-size: 0.4em; font-weight: 700; color: var(--muted); margin-left: 0.2em; letter-spacing: 0; }
+  .ring:not(.minutes) .unit { display: none; }
+  /* Calm: no number; the line in the middle, larger. */
+  .ring.calm .time { display: none; }
+  .ring.calm .line { color: var(--text); font-size: clamp(1.4rem, 6.5vw, 1.9rem); font-weight: 800; text-align: center; max-width: 72%; line-height: 1.2; }
   .rounds { display: flex; gap: 8px; justify-content: center; margin: 6px 0 14px; }
   .rounds i { width: 12px; height: 12px; border-radius: 50%; background: var(--track); }
   .rounds i.on { background: var(--focus); }
@@ -93,11 +100,11 @@
         <select id="robotPick" hidden></select>
       </div>
       <div class="phases"><span data-p="focus">Focus</span><span data-p="short">Short break</span><span data-p="long">Long break</span></div>
-      <div class="ring">
-        <svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="none" stroke="var(--track)" stroke-width="7"/>
+      <div class="ring" id="ring">
+        <svg viewBox="0 0 100 100" aria-hidden="true"><circle id="track" cx="50" cy="50" r="45" fill="none" stroke="var(--track)" stroke-width="7" pathLength="1000"/>
           <circle id="arc" cx="50" cy="50" r="45" fill="none" stroke="var(--focus)" stroke-width="7" stroke-linecap="round"
             pathLength="1000" stroke-dasharray="1000 1000" stroke-dashoffset="0"/></svg>
-        <div class="clock"><div class="time" id="time">25:00</div><div class="line" id="line"></div></div>
+        <div class="clock"><div class="time"><span id="time"></span><span class="unit">min</span></div><div class="line" id="line"></div></div>
       </div>
       <div class="rounds" id="rounds"></div>
       <div class="controls">
@@ -132,6 +139,12 @@
       <details id="settingsBox">
         <summary>Settings</summary>
         <div style="margin-top:12px">
+          <fieldset>
+            <legend>The time left, on the robot and here</legend>
+            <label class="check"><input type="radio" name="display" value="calm"> Calm: no numbers, the ring empties in six steps</label>
+            <label class="check"><input type="radio" name="display" value="minutes"> Minutes left, once a minute</label>
+            <label class="check"><input type="radio" name="display" value="seconds"> Minutes and seconds</label>
+          </fieldset>
           <div class="presets">
             <button class="soft" data-preset="25,5,15,4">25 / 5</button>
             <button class="soft" data-preset="50,10,20,3">50 / 10</button>
@@ -181,6 +194,18 @@ function fmt(ms) {
 }
 const phaseName = { focus: "Focus", short: "Short break", long: "Long break" };
 
+// How the time left shows (settings.display): calm (no number), minutes, seconds.
+const display = () => ({ minutes: "minutes", seconds: "seconds" })[st.settings.display] || "calm";
+// The calm ring: six segments (as the robot's LEDs), with gaps of GAP thousandths of the circle.
+const STEPS = 6, GAP = 8;
+const segments = (n) => [...Array(n).fill(`${1000 / STEPS - GAP} ${GAP}`), "0 1000"].join(" ");
+// set changes an attribute (or the text, name "") only when it differs.
+function set(el, name, value) {
+  if (name === "") { if (el.textContent !== value) el.textContent = value; }
+  else if (value === null) el.removeAttribute(name);
+  else if (el.getAttribute(name) !== value) el.setAttribute(name, value);
+}
+
 function leftNow() {
   if (!st) return 0;
   if (st.status !== "running") return st.left_ms;
@@ -190,19 +215,32 @@ function leftNow() {
 function lineText(left) {
   if (st.status === "paused") return "Paused";
   if (st.status === "idle") return st.phase === "focus" ? "Ready to focus" : "Time for a break";
-  if (st.phase === "focus") return "Free in " + Math.max(1, Math.ceil(left / 60000)) + " min";
+  if (st.phase === "focus") return display() === "calm" ? "Focusing" : "Free in " + Math.max(1, Math.ceil(left / 60000)) + " min";
   return st.phase === "long" ? "Take a walk" : "Stand up, stretch";
 }
 
-// The clock moves here between the server's states (its time is the truth: offset).
+// The clock moves here between the server's states (its time is the truth: offset). Only what the
+// display shows changes: every second, once a minute, or (calm) six times a phase.
 function tick() {
   if (!st) return;
-  const left = leftNow();
-  $("time").textContent = fmt(left);
-  $("line").textContent = lineText(left);
-  const frac = st.full_ms ? Math.max(0, Math.min(1, left / st.full_ms)) : 1;
-  $("arc").setAttribute("stroke-dashoffset", String(1000 * (1 - frac)));
-  document.title = st.status === "running" ? fmt(left) + " · " + phaseName[st.phase] : "Focus";
+  const left = Math.max(0, leftNow()), mode = display(), full = st.full_ms, mins = Math.ceil(left / 60000);
+  set($("time"), "", mode === "seconds" ? fmt(left) : mode === "minutes" ? String(mins) : "");
+  set($("line"), "", lineText(left));
+  const arc = $("arc"), track = $("track");
+  if (mode === "calm") {
+    const n = full ? Math.ceil(STEPS * Math.min(left, full) / full) : STEPS;
+    set(arc, "stroke-dasharray", segments(n)); set(arc, "stroke-dashoffset", String(-GAP / 2)); set(arc, "stroke-linecap", "butt");
+    set(track, "stroke-dasharray", segments(STEPS)); set(track, "stroke-dashoffset", String(-GAP / 2));
+  } else {
+    const shown = !full ? 1 : Math.min(1, (mode === "minutes" ? mins * 60000 : left) / full);
+    set(arc, "stroke-dasharray", "1000 1000"); set(arc, "stroke-dashoffset", String(1000 * (1 - shown))); set(arc, "stroke-linecap", "round");
+    set(track, "stroke-dasharray", null); set(track, "stroke-dashoffset", null);
+  }
+  const title = st.status !== "running" ? "Focus"
+    : mode === "seconds" ? fmt(left) + " · " + phaseName[st.phase]
+    : mode === "minutes" ? mins + " min · " + phaseName[st.phase]
+    : st.phase === "focus" ? "Focusing" : phaseName[st.phase];
+  if (document.title !== title) document.title = title;
 }
 
 function render() {
@@ -219,6 +257,7 @@ function render() {
     pick.replaceChildren(...st.robots.map((id) => Object.assign(document.createElement("option"), { value: id, textContent: id, selected: id === st.robot })));
   }
   for (const s of document.querySelectorAll(".phases span")) s.className = s.dataset.p === st.phase ? "on" : "";
+  $("ring").className = "ring " + display();
   $("arc").setAttribute("stroke", st.status === "paused" ? "var(--amber)" : `var(--${st.phase})`);
   $("toggle").textContent = st.status === "running" ? "Pause" : st.status === "paused" ? "Resume" : (st.phase === "focus" ? "Start focus" : "Start break");
   $("rounds").replaceChildren(...Array.from({ length: st.settings.long_every }, (_, i) => Object.assign(document.createElement("i"), { className: i < st.round ? "on" : "" })));
@@ -270,6 +309,7 @@ function fillSettings(s) {
   $("longEvery").value = s.long_every; $("dailyGoal").value = s.daily_goal; $("dayStart").value = Math.floor((s.day_starts_at_min || 0) / 60);
   $("autoBreak").checked = s.auto_break; $("autoFocus").checked = s.auto_focus; $("sound").checked = s.sound;
   $("lights").checked = s.lights; $("moves").checked = s.moves;
+  for (const r of document.querySelectorAll("input[name=display]")) r.checked = r.value === (s.display || "calm");
 }
 
 function take(body) {
@@ -326,7 +366,8 @@ $("save").onclick = async () => {
   const n = (id) => parseInt($(id).value, 10) || 0;
   const settings = { focus_min: n("focusMin"), short_min: n("shortMin"), long_min: n("longMin"), long_every: n("longEvery"),
     daily_goal: n("dailyGoal"), day_starts_at_min: n("dayStart") * 60, auto_break: $("autoBreak").checked, auto_focus: $("autoFocus").checked,
-    sound: $("sound").checked, lights: $("lights").checked, moves: $("moves").checked };
+    sound: $("sound").checked, lights: $("lights").checked, moves: $("moves").checked,
+    display: document.querySelector("input[name=display]:checked")?.value || "calm" };
   try {
     take((await api("POST", "/api/settings", { robot: st.robot, settings })).body);
     editing = false;

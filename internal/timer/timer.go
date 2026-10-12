@@ -27,6 +27,15 @@ const (
 	Paused  Status = "paused"  // stopped with Left to go
 )
 
+// Display is how the robot's screen and the page show the time left.
+type Display string
+
+const (
+	Calm    Display = "calm"    // no number: the phase and a ring that empties in a few steps (the default)
+	Minutes Display = "minutes" // the whole minutes left, once a minute
+	Seconds Display = "seconds" // minutes and seconds, every second
+)
+
 // Settings are the person's choices.
 type Settings struct {
 	FocusMin       int  `json:"focus_min"`         // 25
@@ -40,12 +49,15 @@ type Settings struct {
 	Lights         bool `json:"lights"`            // the robot's LEDs show the time left
 	Moves          bool `json:"moves"`             // the robot moves its head at the end of a phase
 	DayStartsAtMin int  `json:"day_starts_at_min"` // a "day" of statistics starts at this local minute (0 = midnight)
+	// Display: how the time left shows; calm unless minutes or seconds were chosen (also for a
+	// timer saved before the setting existed).
+	Display Display `json:"display"`
 }
 
-// DefaultSettings are the classic 25/5/15, four before a long break.
+// DefaultSettings are the classic 25/5/15, four before a long break, and no number counting down.
 func DefaultSettings() Settings {
 	return Settings{FocusMin: 25, ShortMin: 5, LongMin: 15, LongEvery: 4, DailyGoal: 8,
-		Sound: true, Lights: true, Moves: true}
+		Sound: true, Lights: true, Moves: true, Display: Calm}
 }
 
 // Clean keeps the settings within sane bounds.
@@ -62,6 +74,9 @@ func (s Settings) Clean() Settings {
 	s.LongEvery = clamp(s.LongEvery, 1, 12, 4)
 	s.DailyGoal = max(0, min(48, s.DailyGoal))
 	s.DayStartsAtMin = max(0, min(23*60+59, s.DayStartsAtMin))
+	if s.Display != Minutes && s.Display != Seconds {
+		s.Display = Calm
+	}
 	return s
 }
 

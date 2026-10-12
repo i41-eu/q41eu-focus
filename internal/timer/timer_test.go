@@ -1,6 +1,7 @@
 package timer
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 )
@@ -132,5 +133,37 @@ func TestStats(t *testing.T) {
 	tm2.History = []Done{{At: time.Date(2026, 10, 10, 2, 0, 0, 0, loc).UTC(), Minutes: 25}}
 	if st := tm2.Stats(time.Date(2026, 10, 10, 3, 0, 0, 0, loc), loc); st.Today.Date != "2026-10-09" || st.Today.Done != 1 {
 		t.Errorf("night owl: %+v", st.Today)
+	}
+}
+
+func TestDisplaySetting(t *testing.T) {
+	// A new timer is calm: no number counts down.
+	if d := New(DefaultSettings()).Settings.Display; d != Calm {
+		t.Errorf("a new timer: %q", d)
+	}
+	// A timer saved before the setting existed has none; cleaned (as the app does on load), calm.
+	var old Timer
+	if err := json.Unmarshal([]byte(`{"settings":{"focus_min":50,"short_min":10,"long_min":20,"long_every":3,"daily_goal":8,`+
+		`"sound":true,"lights":true,"moves":true},"phase":"focus","status":"idle","left":3000000000000}`), &old); err != nil {
+		t.Fatal(err)
+	}
+	if s := old.Settings.Clean(); s.Display != Calm || s.FocusMin != 50 {
+		t.Errorf("a timer saved before: %+v", s)
+	}
+	for in, want := range map[Display]Display{"": Calm, "calm": Calm, "minutes": Minutes, "seconds": Seconds, "fancy": Calm, "Minutes": Calm} {
+		if got := (Settings{Display: in}).Clean().Display; got != want {
+			t.Errorf("Clean(%q) = %q, want %q", in, got, want)
+		}
+	}
+	// A choice is kept, and saved under "display".
+	tm := New(DefaultSettings())
+	s := tm.Settings
+	s.Display = Minutes
+	tm.SetSettings(s)
+	b, _ := json.Marshal(tm)
+	var back Timer
+	json.Unmarshal(b, &back)
+	if tm.Settings.Display != Minutes || back.Settings.Display != Minutes {
+		t.Errorf("minutes: %q, saved %s", tm.Settings.Display, b)
 	}
 }
