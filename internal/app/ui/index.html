@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Focus</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Ccircle cx=%228%22 cy=%228%22 r=%226%22 fill=%22none%22 stroke=%22%23e5533d%22 stroke-width=%223%22/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #f4f6ff; --card: #ffffff; --text: #1e2355; --muted: #5a618e; --border: #dce1f5; --soft: #e8ebff;
+    --accent: #5b6cff; --accent-text: #ffffff; --link: #3f4fd6; --ok: #1f9d55; --off: #9aa0bd; --track: #e3e6f5;
+    --focus: #e5533d; --short: #2ead6b; --long: #3b82f6; --amber: #e09a1c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12142a; --card: #1c1f3d; --text: #e8eaff; --muted: #a3a8cc; --border: #2c3060; --soft: #262a52;
+      --accent: #7d8cff; --accent-text: #0e1030; --link: #aab4ff; --ok: #4ade80; --off: #6b7094; --track: #2a3050;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--text);
+         font: 16px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 560px; margin: 0 auto; }
+  header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  header .brand { font-weight: 800; font-size: 1.15rem; }
+  header .acct { margin-left: auto; color: var(--muted); font-size: 0.92rem; display: flex; align-items: center; gap: 6px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 18px; margin-bottom: 14px; }
+  h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 10px; }
+  .muted { color: var(--muted); font-size: 0.92rem; }
+  .small { font-size: 0.85rem; }
+  button { font: inherit; font-weight: 700; border: 0; border-radius: 12px; padding: 12px 18px; cursor: pointer;
+           background: var(--accent); color: var(--accent-text); }
+  button.soft { background: var(--soft); color: var(--text); }
+  button.link { background: none; color: var(--link); padding: 4px 6px; font-weight: 600; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  button:disabled { opacity: .45; cursor: default; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--off); flex: none; }
+  .dot.on { background: var(--ok); }
+  input[type=text], input[type=number] { font: inherit; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border);
+           background: var(--bg); color: var(--text); width: 100%; }
+  input[type=number] { width: 5.5em; }
+  label.check { display: flex; gap: 10px; align-items: center; margin: 6px 0; }
+
+  .phases { display: flex; gap: 6px; justify-content: center; margin-bottom: 4px; }
+  .phases span { padding: 4px 12px; border-radius: 999px; font-size: 0.85rem; font-weight: 700; color: var(--muted); }
+  .phases span.on { background: var(--soft); color: var(--text); }
+  .ring { position: relative; width: min(78vw, 300px); aspect-ratio: 1; margin: 6px auto 4px; }
+  .ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .ring .clock { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .ring .time { font-size: clamp(3rem, 15vw, 4.4rem); font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+  .ring .line { color: var(--muted); font-weight: 600; }
+  .rounds { display: flex; gap: 8px; justify-content: center; margin: 6px 0 14px; }
+  .rounds i { width: 12px; height: 12px; border-radius: 50%; background: var(--track); }
+  .rounds i.on { background: var(--focus); }
+  .controls { display: flex; gap: 10px; justify-content: center; }
+  .controls .main { min-width: 9em; font-size: 1.1rem; }
+  .marks { display: flex; gap: 8px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
+  .marks button { font-weight: 600; font-size: 0.9rem; padding: 8px 12px; }
+
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; text-align: center; }
+  .stats b { display: block; font-size: 1.6rem; font-variant-numeric: tabular-nums; }
+  .week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; align-items: end; height: 110px; margin-top: 14px; }
+  .week > div { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 4px; font-size: 0.75rem; color: var(--muted); }
+  .week .bar { width: 70%; border-radius: 6px 6px 2px 2px; background: var(--focus); min-height: 2px; }
+  .week .today .bar { background: var(--accent); }
+  .presets { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .grid2 { display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; align-items: center; }
+  details > summary { cursor: pointer; font-weight: 700; }
+  footer { color: var(--muted); font-size: 0.8rem; margin-top: 18px; }
+  footer a { color: inherit; }
+  #err { color: #c2410c; min-height: 1.2em; }
+</style>
+</head>
+<body>
+<main>
+  <header><span class="brand">Focus</span><span class="acct" id="acct"></span></header>
+  <div id="err"></div>
+  <p class="muted" id="loading">Loading…</p>
+  <div class="sr" id="sr" aria-live="polite"></div>
+
+  <section class="card" id="unpaired" hidden>
+    <h2>Pair with your robot</h2>
+    <p>On the robot, swipe up from the bottom edge and tap <b>QR</b>, then scan the code with this phone.
+      The timer also runs on the robot alone: tap its screen to start or pause, hold it to skip.</p>
+    <p id="signinRow" hidden><button class="link" id="signin">Sign in</button> <span class="muted">to see your own robots without the QR code.</span></p>
+  </section>
+
+  <div id="paired" hidden>
+    <section class="card">
+      <div class="row" style="justify-content:space-between;margin-bottom:6px">
+        <span class="row small muted"><span class="dot" id="online"></span><span id="robotName"></span></span>
+        <select id="robotPick" hidden></select>
+      </div>
+      <div class="phases"><span data-p="focus">Focus</span><span data-p="short">Short break</span><span data-p="long">Long break</span></div>
+      <div class="ring">
+        <svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="none" stroke="var(--track)" stroke-width="7"/>
+          <circle id="arc" cx="50" cy="50" r="45" fill="none" stroke="var(--focus)" stroke-width="7" stroke-linecap="round"
+            pathLength="1000" stroke-dasharray="1000 1000" stroke-dashoffset="0"/></svg>
+        <div class="clock"><div class="time" id="time">25:00</div><div class="line" id="line"></div></div>
+      </div>
+      <div class="rounds" id="rounds"></div>
+      <div class="controls">
+        <button class="soft" id="reset" title="Back to the first focus period">Reset</button>
+        <button class="main" id="toggle">Start</button>
+        <button class="soft" id="skip" title="End this phase now (a focus period cut short does not count)">Skip</button>
+      </div>
+      <div class="marks" id="marks" hidden>
+        <button class="soft" id="markIn" title="An urge or a thought pulled you away: note it, keep going"aria-label="Distracted myself: note it"><span aria-hidden="true">'</span> Distracted myself</button>
+        <button class="soft" id="markEx" title="Someone or something interrupted: note it, keep going"aria-label="Interrupted: note it"><span aria-hidden="true">–</span> Interrupted</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>What are you focusing on?</h2>
+      <input type="text" id="task" maxlength="80" placeholder="e.g. write the report (optional)">
+    </section>
+
+    <section class="card">
+      <h2>Today</h2>
+      <div class="stats">
+        <div><b id="sDone">0</b><span class="muted small" id="sGoal">focus periods</span></div>
+        <div><b id="sMin">0</b><span class="muted small">minutes</span></div>
+        <div><b id="sStreak">0</b><span class="muted small">days in a row</span></div>
+      </div>
+      <p class="muted small" id="sMarks" style="text-align:center;margin:10px 0 0"></p>
+      <div class="week" id="week"></div>
+      <div id="tasks"></div>
+    </section>
+
+    <section class="card">
+      <details id="settingsBox">
+        <summary>Settings</summary>
+        <div style="margin-top:12px">
+          <div class="presets">
+            <button class="soft" data-preset="25,5,15,4">25 / 5</button>
+            <button class="soft" data-preset="50,10,20,3">50 / 10</button>
+            <button class="soft" data-preset="90,20,30,2">90 / 20</button>
+          </div>
+          <div class="grid2">
+            <span>Focus (minutes)</span><input type="number" id="focusMin" min="1" max="180">
+            <span>Short break</span><input type="number" id="shortMin" min="1" max="60">
+            <span>Long break</span><input type="number" id="longMin" min="1" max="120">
+            <span>Long break after this many focus periods</span><input type="number" id="longEvery" min="1" max="12">
+            <span>Daily goal (0: none)</span><input type="number" id="dailyGoal" min="0" max="48">
+            <span>A day starts at (hour)</span><input type="number" id="dayStart" min="0" max="23">
+          </div>
+          <label class="check"><input type="checkbox" id="autoBreak"> A break starts by itself after focus</label>
+          <label class="check"><input type="checkbox" id="autoFocus"> Focus starts by itself after a break</label>
+          <label class="check"><input type="checkbox" id="sound"> Chime on the robot when a phase ends</label>
+          <label class="check"><input type="checkbox" id="lights"> The robot's lights show the time left</label>
+          <label class="check"><input type="checkbox" id="moves"> The robot nods and looks up at phase ends</label>
+          <button id="save" style="margin-top:8px">Save settings</button>
+        </div>
+      </details>
+    </section>
+  </div>
+
+  <footer>
+    A focus timer in the style of the Pomodoro Technique® by Francesco Cirillo (his registered trademark; this project is
+    not affiliated with it). On the robot: tap the screen to start or pause, hold it to skip. More about Focus and the
+    robot's other apps: <a href="https://s.i41.eu/focus">s.i41.eu/focus</a>. Open source:
+    <a href="https://github.com/i41-eu/q41eu-focus">q41eu-focus</a> · Stack-chan (スタックチャン) is a registered trademark of
+    Shinya Ishikawa; this project is independent and only made to work with Stack-chan robots.
+  </footer>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+let st = null, robot = new URLSearchParams(location.search).get("robot") || "", offset = 0, es = null, editing = false;
+
+async function api(method, path, body) {
+  const r = await fetch(path, { method, headers: body ? { "Content-Type": "application/json" } : {}, body: body ? JSON.stringify(body) : undefined });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok && r.status !== 404) throw new Error(j.error || r.statusText);
+  return { status: r.status, body: j };
+}
+
+function fmt(ms) {
+  const s = Math.max(0, Math.ceil(ms / 1000));
+  return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+}
+const phaseName = { focus: "Focus", short: "Short break", long: "Long break" };
+
+function leftNow() {
+  if (!st) return 0;
+  if (st.status !== "running") return st.left_ms;
+  return st.left_ms - (Date.now() - offset - st.server_ms);
+}
+
+function lineText(left) {
+  if (st.status === "paused") return "Paused";
+  if (st.status === "idle") return st.phase === "focus" ? "Ready to focus" : "Time for a break";
+  if (st.phase === "focus") return "Free in " + Math.max(1, Math.ceil(left / 60000)) + " min";
+  return st.phase === "long" ? "Take a walk" : "Stand up, stretch";
+}
+
+// The clock moves here between the server's states (its time is the truth: offset).
+function tick() {
+  if (!st) return;
+  const left = leftNow();
+  $("time").textContent = fmt(left);
+  $("line").textContent = lineText(left);
+  const frac = st.full_ms ? Math.max(0, Math.min(1, left / st.full_ms)) : 1;
+  $("arc").setAttribute("stroke-dashoffset", String(1000 * (1 - frac)));
+  document.title = st.status === "running" ? fmt(left) + " · " + phaseName[st.phase] : "Focus";
+}
+
+function render() {
+  const paired = !!st;
+  $("loading").hidden = true;
+  $("paired").hidden = !paired;
+  $("unpaired").hidden = paired;
+  if (!paired) return;
+  $("online").className = "dot" + (st.online ? " on" : "");
+  $("robotName").textContent = (st.online ? "Robot connected" : "Robot offline") + (st.watching > 1 ? ` · open on ${st.watching} devices` : "");
+  const pick = $("robotPick");
+  pick.hidden = (st.robots || []).length < 2;
+  if (!pick.hidden) {
+    pick.replaceChildren(...st.robots.map((id) => Object.assign(document.createElement("option"), { value: id, textContent: id, selected: id === st.robot })));
+  }
+  for (const s of document.querySelectorAll(".phases span")) s.className = s.dataset.p === st.phase ? "on" : "";
+  $("arc").setAttribute("stroke", st.status === "paused" ? "var(--amber)" : `var(--${st.phase})`);
+  $("toggle").textContent = st.status === "running" ? "Pause" : st.status === "paused" ? "Resume" : (st.phase === "focus" ? "Start focus" : "Start break");
+  $("rounds").replaceChildren(...Array.from({ length: st.settings.long_every }, (_, i) => Object.assign(document.createElement("i"), { className: i < st.round ? "on" : "" })));
+  $("marks").hidden = !(st.phase === "focus" && st.status === "running");
+  // Screen readers hear the phase and its state when they change (not every second).
+  const said = phaseName[st.phase] + ": " + { running: "running", paused: "paused", idle: "ready" }[st.status];
+  if ($("sr").textContent !== said) $("sr").textContent = said;
+  if (document.activeElement !== $("task")) $("task").value = st.task || "";
+  const t = st.stats.today;
+  $("sDone").textContent = t.done;
+  $("sGoal").textContent = st.stats.goal ? `of ${st.stats.goal} focus periods` : "focus periods";
+  $("sMin").textContent = t.minutes;
+  $("sStreak").textContent = st.stats.streak;
+  const marks = [];
+  if (t.internal) marks.push(`${t.internal} × distracted myself`);
+  if (t.external) marks.push(`${t.external} × interrupted`);
+  if (t.voided) marks.push(`${t.voided} cut short`);
+  $("sMarks").textContent = marks.join(" · ");
+  const most = Math.max(1, ...st.stats.week.map((d) => d.done));
+  $("week").replaceChildren(...st.stats.week.map((d, i) => {
+    const day = new Date(d.date + "T12:00:00").toLocaleDateString(undefined, { weekday: "short" });
+    const div = document.createElement("div");
+    if (i === 6) div.className = "today";
+    div.title = `${d.date}: ${d.done} focus periods, ${d.minutes} min`;
+    div.append(Object.assign(document.createElement("span"), { textContent: d.done || "" }),
+      Object.assign(document.createElement("div"), { className: "bar", style: `height:${(d.done / most) * 80}%` }), day);
+    return div;
+  }));
+  $("tasks").replaceChildren(...(st.stats.tasks?.length ? [Object.assign(document.createElement("p"), { className: "muted small",
+    textContent: "This week: " + st.stats.tasks.slice(0, 5).map((t) => `${t.task} ${t.done}×`).join(" · ") })] : []));
+  if (!editing) fillSettings(st.settings);
+  $("sound").disabled = !st.speaker && st.online;
+  const acct = $("acct");
+  acct.replaceChildren();
+  if (st.signed_in) {
+    const out = Object.assign(document.createElement("button"), { className: "link", textContent: "Sign out" });
+    out.onclick = async () => { await api("POST", "/auth/logout"); location.reload(); };
+    acct.append(st.signed_in, out);
+  } else if (st.sign_in) {
+    const b = Object.assign(document.createElement("button"), { className: "link", textContent: "Sign in" });
+    b.onclick = () => { location.href = "/auth/login?next=" + encodeURIComponent(location.pathname + location.search); };
+    acct.append(b);
+  }
+  tick();
+}
+
+function fillSettings(s) {
+  $("focusMin").value = s.focus_min; $("shortMin").value = s.short_min; $("longMin").value = s.long_min;
+  $("longEvery").value = s.long_every; $("dailyGoal").value = s.daily_goal; $("dayStart").value = Math.floor((s.day_starts_at_min || 0) / 60);
+  $("autoBreak").checked = s.auto_break; $("autoFocus").checked = s.auto_focus; $("sound").checked = s.sound;
+  $("lights").checked = s.lights; $("moves").checked = s.moves;
+}
+
+function take(body) {
+  if (body && body.robot) {
+    offset = Date.now() - body.server_ms; // the server's clock
+    st = body;
+    render();
+  }
+}
+
+async function load() {
+  try {
+    const r = await api("GET", "/api/state" + (robot ? "?robot=" + encodeURIComponent(robot) : ""));
+    if (r.status === 404) {
+      st = null;
+      render();
+      $("signinRow").hidden = !r.body.sign_in || !!r.body.signed_in;
+      if (r.body.signed_in) $("acct").textContent = r.body.signed_in;
+      return;
+    }
+    take(r.body);
+  } catch (e) { $("err").textContent = e.message; }
+}
+
+function listen() {
+  es?.close();
+  es = new EventSource("/api/events" + (robot ? "?robot=" + encodeURIComponent(robot) : ""));
+  es.addEventListener("state", (ev) => take(JSON.parse(ev.data)));
+}
+
+async function act(action, arg) {
+  $("err").textContent = "";
+  try { take((await api("POST", "/api/action", { robot: st?.robot || robot, action, arg })).body); }
+  catch (e) { $("err").textContent = e.message; }
+}
+
+$("toggle").onclick = () => act("toggle");
+$("skip").onclick = () => act("skip");
+$("reset").onclick = () => (st.status === "idle" && st.phase === "focus" && st.round === 0) || confirm("Back to the first focus period? A focus period running now does not count.") ? act("reset") : null;
+$("markIn").onclick = () => act("interrupt", "internal");
+$("markEx").onclick = () => act("interrupt", "external");
+$("task").onchange = () => act("task", $("task").value);
+$("robotPick").onchange = () => { robot = $("robotPick").value; history.replaceState(null, "", "?robot=" + encodeURIComponent(robot)); listen(); load(); };
+$("signin").onclick = () => { location.href = "/auth/login?next=/"; };
+for (const b of document.querySelectorAll("[data-preset]")) {
+  b.onclick = () => {
+    const [f, s, l, e] = b.dataset.preset.split(",");
+    $("focusMin").value = f; $("shortMin").value = s; $("longMin").value = l; $("longEvery").value = e;
+    editing = true;
+  };
+}
+for (const el of document.querySelectorAll("#settingsBox input")) el.addEventListener("input", () => { editing = true; });
+$("save").onclick = async () => {
+  const n = (id) => parseInt($(id).value, 10) || 0;
+  const settings = { focus_min: n("focusMin"), short_min: n("shortMin"), long_min: n("longMin"), long_every: n("longEvery"),
+    daily_goal: n("dailyGoal"), day_starts_at_min: n("dayStart") * 60, auto_break: $("autoBreak").checked, auto_focus: $("autoFocus").checked,
+    sound: $("sound").checked, lights: $("lights").checked, moves: $("moves").checked };
+  try {
+    take((await api("POST", "/api/settings", { robot: st.robot, settings })).body);
+    editing = false;
+    $("settingsBox").open = false;
+  } catch (e) { $("err").textContent = e.message; }
+};
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT" || !st) return;
+  if (e.code === "Space") { e.preventDefault(); act("toggle"); }
+});
+
+load().then(listen);
+setInterval(tick, 250);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) load(); });
+</script>
+</body>
+</html>
